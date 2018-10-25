@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -23,10 +22,10 @@ func NewSSHClient(logger lager.Logger, config Config) Client {
 }
 
 type sshClient struct {
-	logger  lager.Logger
+	logger lager.Logger
+	config Config
+
 	client  *ssh.Client
-	config  Config
-	conn    ssh.Conn
 	tcpConn net.Conn
 }
 
@@ -111,14 +110,6 @@ func (c *sshClient) KeepAlive() (<-chan error, chan<- struct{}) {
 	return errs, cancel
 }
 
-func (c *sshClient) Listen(n, addr string) (net.Listener, error) {
-	return c.client.Listen(n, addr)
-}
-
-func (c *sshClient) Close() error {
-	return c.client.Close()
-}
-
 func (c *sshClient) NewSession(stdin io.Reader, stdout io.Writer, stderr io.Writer) (Session, error) {
 	sess, err := c.client.NewSession()
 	if err != nil {
@@ -133,7 +124,7 @@ func (c *sshClient) NewSession(stdin io.Reader, stdout io.Writer, stderr io.Writ
 }
 
 func (c *sshClient) Proxy(from, to string) error {
-	remoteListener, err := c.Listen("tcp", from)
+	remoteListener, err := c.client.Listen("tcp", from)
 	if err != nil {
 		return fmt.Errorf("failed to listen remotely: %s", err)
 	}
@@ -172,12 +163,21 @@ func (c *sshClient) proxyListenerTo(listener net.Listener, addr string) {
 }
 
 func (c *sshClient) handleForwardedConn(rConn net.Conn, addr string) {
-	defer rConn.Close()
+	defer func() {
+		c.logger.Info("XXX-closing-via-handle-forwarded-conn")
+		rConn.Close()
+	}()
 
-	lConn, err := net.Dial("tcp", addr)
-	if err != nil {
-		log.Println("failed to forward remote connection:", err)
-		return
+	var lConn net.Conn
+	for {
+		var err error
+		lConn, err = net.Dial("tcp", addr)
+		if err != nil {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		break
 	}
 
 	wg := new(sync.WaitGroup)

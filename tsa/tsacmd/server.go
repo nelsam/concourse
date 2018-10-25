@@ -16,8 +16,8 @@ import (
 	gclient "code.cloudfoundry.org/garden/client"
 	gconn "code.cloudfoundry.org/garden/client/connection"
 	"code.cloudfoundry.org/lager"
-	"github.com/concourse/concourse/atc"
 	bclient "github.com/concourse/baggageclaim/client"
+	"github.com/concourse/concourse/atc"
 	"github.com/concourse/concourse/tsa"
 	"github.com/tedsuo/ifrit"
 	"golang.org/x/crypto/ssh"
@@ -98,7 +98,7 @@ func (server *registrarSSHServer) handshake(logger lager.Logger, netConn net.Con
 		return
 	}
 
-	defer conn.Close()
+	// defer conn.Close()
 
 	forwardedTCPIPs := make(chan forwardedTCPIP, maxForwards)
 	go server.handleForwardRequests(logger, conn, reqs, forwardedTCPIPs)
@@ -197,13 +197,23 @@ func (server *registrarSSHServer) handleChannel(
 
 			logger.RegisterSink(lager.NewWriterSink(channel, server.logLevel))
 			err := server.landWorker(logger, channel, sessionID)
+
+			req := exitStatusRequest{0}
 			if err != nil {
 				logger.Error("failed-to-land-worker", err)
-				channel.SendRequest("exit-status", false, ssh.Marshal(exitStatusRequest{1}))
-				channel.Close()
-			} else {
-				channel.SendRequest("exit-status", false, ssh.Marshal(exitStatusRequest{0}))
-				channel.Close()
+				req.ExitStatus = 1
+			}
+
+			res, err := channel.SendRequest("exit-status", false, ssh.Marshal(req))
+			if err != nil {
+				logger.Error("failed-to-send-exit-status", err)
+			}
+
+			logger.Info("XXX-send-exit-status", lager.Data{"response": res})
+
+			err = channel.Close()
+			if err != nil {
+				logger.Error("failed-to-close-channel", err)
 			}
 
 		case retireWorkerRequest:

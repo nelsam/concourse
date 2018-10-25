@@ -32,10 +32,9 @@ func NewSweeperRunner(logger lager.Logger,
 	client := beacon.NewSSHClient(logger.Session("beacon-client"), config)
 
 	beaconC := &beacon.Beacon{
-		Logger:    logger,
-		Worker:    atcWorker,
-		Client:    client,
-		KeepAlive: false, // disable keepalive for mark and sweep calls
+		Logger: logger,
+		Worker: atcWorker,
+		Client: client,
 	}
 
 	scmd := &Command{

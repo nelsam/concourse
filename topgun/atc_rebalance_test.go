@@ -18,6 +18,7 @@ var _ = Describe("ATC Rebalance", func() {
 		BeforeEach(func() {
 			By("Configuring two ATCs")
 			Deploy("deployments/concourse-two-atcs-slow-tracking.yml")
+			time.Sleep(time.Hour)
 			waitForRunningWorker()
 
 			atcs = JobInstances("web")
@@ -29,7 +30,7 @@ var _ = Describe("ATC Rebalance", func() {
 		})
 
 		Describe("when a rebalance time is configured", func() {
-			It("the worker eventually connects to both web nodes over a period of time", func() {
+			FIt("the worker eventually connects to both web nodes over a period of time", func() {
 				Eventually(func() string {
 					workers := flyTable("workers", "-d")
 					return strings.Split(workers[0]["garden address"], ":")[0]

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,27 +26,19 @@ const (
 	reaperAddr              = "0.0.0.0:" + ReaperPort
 )
 
-//go:generate counterfeiter . Closeable
-
-type Closeable interface {
-	Close() error
-}
-
 //go:generate counterfeiter . Client
 
 type Client interface {
+	Dial() (Closeable, error)
 	KeepAlive() (<-chan error, chan<- struct{})
 	NewSession(stdin io.Reader, stdout io.Writer, stderr io.Writer) (Session, error)
-	Listen(n, addr string) (net.Listener, error)
 	Proxy(from, to string) error
-	Dial() (Closeable, error)
 }
 
 //go:generate counterfeiter . Session
 
 type Session interface {
 	Wait() error
-	// Read out of session
 	Close() error
 	Start(command string) error
 	Output(command string) ([]byte, error)
@@ -74,7 +65,6 @@ type Beacon struct {
 	Worker           atc.Worker
 	Client           Client
 	RegistrationMode RegistrationMode
-	KeepAlive        bool
 
 	GardenAddr       string
 	GardenClient     garden.Client
@@ -144,7 +134,7 @@ func (beacon *Beacon) Register(signals <-chan os.Signal, ready chan<- struct{}) 
 				go registerWorker(latestErrChan)
 			}
 		case err := <-latestErrChan:
-			beacon.Logger.Debug("latest-connection-errored")
+			beacon.Logger.Error("latest-connection-exited", err)
 			cancelFunc()
 			bwg.Wait()
 			return err
@@ -160,17 +150,18 @@ func (beacon *Beacon) Register(signals <-chan os.Signal, ready chan<- struct{}) 
 func (beacon *Beacon) registerForwarded(ctx context.Context, disableKeepAliveCtx context.Context) error {
 	beacon.Logger.Debug("forward-worker")
 	return beacon.run(
+		ctx,
 		"forward-worker "+
 			"--garden "+gardenForwardAddr+" "+
 			"--baggageclaim "+baggageclaimForwardAddr+" ",
-		ctx,
+		true,
 		disableKeepAliveCtx,
 	)
 }
 
 func (beacon *Beacon) registerDirect(ctx context.Context, disableKeepAliveCtx context.Context) error {
 	beacon.Logger.Debug("register-worker")
-	return beacon.run("register-worker", ctx, disableKeepAliveCtx)
+	return beacon.run(ctx, "register-worker", true, disableKeepAliveCtx)
 }
 
 func (beacon *Beacon) SweepContainers(gardenClient garden.Client) error {
@@ -339,34 +330,44 @@ func (beacon *Beacon) ReportVolumes() error {
 
 func (beacon *Beacon) LandWorker() error {
 	beacon.Logger.Debug("land-worker")
-	return beacon.run("land-worker", context.TODO(), context.TODO())
+	return beacon.run(context.TODO(), "land-worker", false, nil)
 }
 
 func (beacon *Beacon) RetireWorker() error {
 	beacon.Logger.Debug("retire-worker")
-	return beacon.run("retire-worker", context.TODO(), context.TODO())
+	return beacon.run(context.TODO(), "retire-worker", false, nil)
 }
 
 func (beacon *Beacon) DeleteWorker() error {
 	beacon.Logger.Debug("delete-worker")
-	return beacon.run("delete-worker", context.TODO(), context.TODO())
+	return beacon.run(context.TODO(), "delete-worker", false, nil)
 }
 
 // TODO CC: maybe we should pass `ctx` as the first argument (instead of
 // `command` to adhere to go patterns?
-func (beacon *Beacon) run(command string, ctx context.Context, disableKeepAliveCtx context.Context) error {
-	beacon.Logger.Debug("command-to-run", lager.Data{"cmd": command})
+func (beacon *Beacon) run(ctx context.Context, command string, register bool, disableKeepAliveCtx context.Context) error {
+	logger := beacon.Logger.Session("run", lager.Data{
+		"command": command,
+	})
+
+	logger.Debug("start")
+	defer logger.Debug("done")
 
 	conn, err := beacon.Client.Dial()
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+
+	defer func() {
+		logger.Info("XXX-closing-conn-via-run")
+		conn.Close()
+	}()
 
 	var cancelKeepalive chan<- struct{}
 	var keepaliveFailed <-chan error
 
-	if beacon.KeepAlive {
+	if register {
+		logger.Debug("keepalive")
 		keepaliveFailed, cancelKeepalive = beacon.Client.KeepAlive()
 	}
 
@@ -385,35 +386,50 @@ func (beacon *Beacon) run(command string, ctx context.Context, disableKeepAliveC
 		return fmt.Errorf("failed to create session: %s", err)
 	}
 
-	defer sess.Close()
+	defer func() {
+		logger.Info("XXX-closing-session-via-run")
+		sess.Close()
+	}()
+
 	err = sess.Start(command)
 	if err != nil {
 		return err
 	}
 
-	bcURL, err := url.Parse(beacon.Worker.BaggageclaimURL)
-	if err != nil {
-		return fmt.Errorf("failed to parse baggageclaim url: %s", err)
-	}
+	if register {
+		bcURL, err := url.Parse(beacon.Worker.BaggageclaimURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse baggageclaim url: %s", err)
+		}
 
-	var gardenForwardAddrRemote = beacon.Worker.GardenAddr
-	var bcForwardAddrRemote = bcURL.Host
+		var gardenForwardAddrRemote = beacon.Worker.GardenAddr
+		var bcForwardAddrRemote = bcURL.Host
 
-	if beacon.GardenAddr != "" {
-		gardenForwardAddrRemote = beacon.GardenAddr
+		if beacon.GardenAddr != "" {
+			gardenForwardAddrRemote = beacon.GardenAddr
 
-		if beacon.BaggageclaimAddr != "" {
-			bcForwardAddrRemote = beacon.BaggageclaimAddr
+			if beacon.BaggageclaimAddr != "" {
+				bcForwardAddrRemote = beacon.BaggageclaimAddr
+			}
+		}
+
+		logger.Debug("ssh-forward-config", lager.Data{
+			"remote-garden-addr":       gardenForwardAddrRemote,
+			"remote-baggageclaim-addr": bcForwardAddrRemote,
+		})
+
+		err = beacon.Client.Proxy(gardenForwardAddr, gardenForwardAddrRemote)
+		if err != nil {
+			logger.Error("failed-to-proxy-garden", err)
+			return err
+		}
+
+		err = beacon.Client.Proxy(baggageclaimForwardAddr, bcForwardAddrRemote)
+		if err != nil {
+			logger.Error("failed-to-proxy-baggageclaim", err)
+			return err
 		}
 	}
-
-	beacon.Logger.Debug("ssh-forward-config", lager.Data{
-		"gardenForwardAddrRemote": gardenForwardAddrRemote,
-		"bcForwardAddrRemote":     bcForwardAddrRemote,
-	})
-
-	beacon.Client.Proxy(gardenForwardAddr, gardenForwardAddrRemote)
-	beacon.Client.Proxy(baggageclaimForwardAddr, bcForwardAddrRemote)
 
 	exited := make(chan error, 1)
 
@@ -421,7 +437,7 @@ func (beacon *Beacon) run(command string, ctx context.Context, disableKeepAliveC
 		exited <- sess.Wait()
 	}()
 
-	if beacon.KeepAlive {
+	if register {
 		go func() {
 			select {
 			case <-ctx.Done():
@@ -434,18 +450,28 @@ func (beacon *Beacon) run(command string, ctx context.Context, disableKeepAliveC
 
 	select {
 	case <-ctx.Done():
-		sess.Close()
-		// TODO Is the blocking line below something than can be removed ? CC & SV
+		logger.Info("XXX-context-canceled-closing-session")
+
+		err := sess.Close()
+		if err != nil {
+			logger.Error("failed-to-close-session", err)
+		}
+
 		<-exited
+
 		// don't bother waiting for keepalive
+
 		return nil
 	case err := <-exited:
+		logger.Info("exited", lager.Data{"error": err})
+
 		if err != nil {
-			beacon.Logger.Error("failed-waiting-on-remote-command", err)
+			logger.Error("failed-waiting-on-remote-command", err)
 		}
+
 		return err
 	case err := <-keepaliveFailed:
-		beacon.Logger.Error("failed-to-keep-alive", err)
+		logger.Error("failed-to-keep-alive", err)
 		return err
 	}
 }
@@ -455,7 +481,11 @@ func (beacon *Beacon) executeCommand(command func(Session) error) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+
+	defer func() {
+		beacon.Logger.Info("XXX-closing-via-execute-command")
+		conn.Close()
+	}()
 
 	workerPayload, err := json.Marshal(beacon.Worker)
 	if err != nil {
@@ -471,7 +501,10 @@ func (beacon *Beacon) executeCommand(command func(Session) error) error {
 		return fmt.Errorf("failed to create session: %s", err)
 	}
 
-	defer sess.Close()
+	defer func() {
+		beacon.Logger.Info("XXX-closing-session-via-execute-command")
+		sess.Close()
+	}()
 
 	return command(sess)
 }

@@ -15,10 +15,11 @@ type Config struct {
 
 	GardenForwardAddr       string `long:"garden-forward-addr" description:"Garden address to forward through SSH to the TSA."`
 	BaggageclaimForwardAddr string `long:"baggageclaim-forward-addr" description:"Baggageclaim address to forward through SSH to the TSA."`
-	Registration            struct {
+
+	Registration struct {
 		Mode          RegistrationMode `long:"mode" default:"forward" choice:"forward" choice:"direct"`
 		RebalanceTime time.Duration    `long:"rebalance-time" description:"For forwarded mode only. The interval on which a new connection will be created by the worker, also acts as the idle timeout time of the stale connections. A value of 0 would mean that the Worker will not create additional connections." default:"0s"`
-	} `group:"Registeration" namespace:"registration"`
+	} `group:"Registration" namespace:"registration"`
 }
 
 func (config Config) checkHostKey(hostname string, remote net.Addr, remoteKey ssh.PublicKey) error {
