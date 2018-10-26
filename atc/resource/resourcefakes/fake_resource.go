@@ -7,6 +7,7 @@ import (
 
 	atc "github.com/concourse/concourse/atc"
 	resource "github.com/concourse/concourse/atc/resource"
+	source "github.com/concourse/concourse/atc/resource/source"
 	worker "github.com/concourse/concourse/atc/worker"
 )
 
@@ -36,38 +37,38 @@ type FakeResource struct {
 	containerReturnsOnCall map[int]struct {
 		result1 worker.Container
 	}
-	GetStub        func(context.Context, worker.Volume, resource.IOConfig, atc.Source, atc.Params, atc.Version) (resource.VersionedSource, error)
+	GetStub        func(context.Context, worker.Volume, source.IOConfig, atc.Source, atc.Params, atc.Version) (source.VersionedSource, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		arg1 context.Context
 		arg2 worker.Volume
-		arg3 resource.IOConfig
+		arg3 source.IOConfig
 		arg4 atc.Source
 		arg5 atc.Params
 		arg6 atc.Version
 	}
 	getReturns struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
 	getReturnsOnCall map[int]struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
-	PutStub        func(context.Context, resource.IOConfig, atc.Source, atc.Params) (resource.VersionedSource, error)
+	PutStub        func(context.Context, source.IOConfig, atc.Source, atc.Params) (source.VersionedSource, error)
 	putMutex       sync.RWMutex
 	putArgsForCall []struct {
 		arg1 context.Context
-		arg2 resource.IOConfig
+		arg2 source.IOConfig
 		arg3 atc.Source
 		arg4 atc.Params
 	}
 	putReturns struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
 	putReturnsOnCall map[int]struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
 	invocations      map[string][][]interface{}
@@ -171,13 +172,13 @@ func (fake *FakeResource) ContainerReturnsOnCall(i int, result1 worker.Container
 	}{result1}
 }
 
-func (fake *FakeResource) Get(arg1 context.Context, arg2 worker.Volume, arg3 resource.IOConfig, arg4 atc.Source, arg5 atc.Params, arg6 atc.Version) (resource.VersionedSource, error) {
+func (fake *FakeResource) Get(arg1 context.Context, arg2 worker.Volume, arg3 source.IOConfig, arg4 atc.Source, arg5 atc.Params, arg6 atc.Version) (source.VersionedSource, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
 		arg1 context.Context
 		arg2 worker.Volume
-		arg3 resource.IOConfig
+		arg3 source.IOConfig
 		arg4 atc.Source
 		arg5 atc.Params
 		arg6 atc.Version
@@ -200,41 +201,41 @@ func (fake *FakeResource) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *FakeResource) GetArgsForCall(i int) (context.Context, worker.Volume, resource.IOConfig, atc.Source, atc.Params, atc.Version) {
+func (fake *FakeResource) GetArgsForCall(i int) (context.Context, worker.Volume, source.IOConfig, atc.Source, atc.Params, atc.Version) {
 	fake.getMutex.RLock()
 	defer fake.getMutex.RUnlock()
 	argsForCall := fake.getArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
-func (fake *FakeResource) GetReturns(result1 resource.VersionedSource, result2 error) {
+func (fake *FakeResource) GetReturns(result1 source.VersionedSource, result2 error) {
 	fake.GetStub = nil
 	fake.getReturns = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeResource) GetReturnsOnCall(i int, result1 resource.VersionedSource, result2 error) {
+func (fake *FakeResource) GetReturnsOnCall(i int, result1 source.VersionedSource, result2 error) {
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
-			result1 resource.VersionedSource
+			result1 source.VersionedSource
 			result2 error
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeResource) Put(arg1 context.Context, arg2 resource.IOConfig, arg3 atc.Source, arg4 atc.Params) (resource.VersionedSource, error) {
+func (fake *FakeResource) Put(arg1 context.Context, arg2 source.IOConfig, arg3 atc.Source, arg4 atc.Params) (source.VersionedSource, error) {
 	fake.putMutex.Lock()
 	ret, specificReturn := fake.putReturnsOnCall[len(fake.putArgsForCall)]
 	fake.putArgsForCall = append(fake.putArgsForCall, struct {
 		arg1 context.Context
-		arg2 resource.IOConfig
+		arg2 source.IOConfig
 		arg3 atc.Source
 		arg4 atc.Params
 	}{arg1, arg2, arg3, arg4})
@@ -256,31 +257,31 @@ func (fake *FakeResource) PutCallCount() int {
 	return len(fake.putArgsForCall)
 }
 
-func (fake *FakeResource) PutArgsForCall(i int) (context.Context, resource.IOConfig, atc.Source, atc.Params) {
+func (fake *FakeResource) PutArgsForCall(i int) (context.Context, source.IOConfig, atc.Source, atc.Params) {
 	fake.putMutex.RLock()
 	defer fake.putMutex.RUnlock()
 	argsForCall := fake.putArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *FakeResource) PutReturns(result1 resource.VersionedSource, result2 error) {
+func (fake *FakeResource) PutReturns(result1 source.VersionedSource, result2 error) {
 	fake.PutStub = nil
 	fake.putReturns = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeResource) PutReturnsOnCall(i int, result1 resource.VersionedSource, result2 error) {
+func (fake *FakeResource) PutReturnsOnCall(i int, result1 source.VersionedSource, result2 error) {
 	fake.PutStub = nil
 	if fake.putReturnsOnCall == nil {
 		fake.putReturnsOnCall = make(map[int]struct {
-			result1 resource.VersionedSource
+			result1 source.VersionedSource
 			result2 error
 		})
 	}
 	fake.putReturnsOnCall[i] = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }

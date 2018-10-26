@@ -14,6 +14,7 @@ import (
 	"github.com/concourse/concourse/atc/db/dbfakes"
 	"github.com/concourse/concourse/atc/resource"
 	"github.com/concourse/concourse/atc/resource/resourcefakes"
+	"github.com/concourse/concourse/atc/resource/source"
 	"github.com/concourse/concourse/atc/worker"
 	"github.com/concourse/concourse/atc/worker/workerfakes"
 
@@ -64,7 +65,7 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 		fakeContainer.VolumeMountsReturns([]worker.VolumeMount{
 			{
 				Volume:    fakeVolume,
-				MountPath: resource.ResourcesDir("get"),
+				MountPath: source.ResourcesDir("get"),
 			},
 		})
 
@@ -121,12 +122,12 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 
 	Describe("Find", func() {
 		Context("when there is volume", func() {
-			var expectedInitializedVersionedSource resource.VersionedSource
+			var expectedInitializedVersionedSource source.VersionedSource
 			BeforeEach(func() {
 				expectedMetadata := []atc.MetadataField{
 					{Name: "some", Value: "metadata"},
 				}
-				expectedInitializedVersionedSource = resource.NewGetVersionedSource(fakeVolume, fakeResourceInstance.Version(), expectedMetadata)
+				expectedInitializedVersionedSource = source.NewGetVersionedSource(fakeVolume, fakeResourceInstance.Version(), expectedMetadata)
 				fakeResourceInstance.FindOnReturns(fakeVolume, true, nil)
 			})
 
@@ -155,8 +156,8 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 	Describe("Create", func() {
 		var (
 			initErr                 error
-			versionedSource         resource.VersionedSource
-			expectedVersionedSource resource.VersionedSource
+			versionedSource         source.VersionedSource
+			expectedVersionedSource source.VersionedSource
 		)
 
 		BeforeEach(func() {
@@ -173,7 +174,7 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 				expectedMetadata := []atc.MetadataField{
 					{Name: "some", Value: "metadata"},
 				}
-				expectedVersionedSource = resource.NewGetVersionedSource(fakeVolume, fakeResourceInstance.Version(), expectedMetadata)
+				expectedVersionedSource = source.NewGetVersionedSource(fakeVolume, fakeResourceInstance.Version(), expectedMetadata)
 			})
 
 			It("does not fetch resource", func() {
@@ -207,7 +208,7 @@ var _ = Describe("ResourceInstanceFetchSource", func() {
 					},
 					BindMounts: []worker.BindMountSource{&worker.CertsVolumeMount{Logger: logger}},
 					Outputs: map[string]string{
-						"resource": resource.ResourcesDir("get"),
+						"resource": source.ResourcesDir("get"),
 					},
 				}))
 				Expect(types).To(Equal(resourceTypes))

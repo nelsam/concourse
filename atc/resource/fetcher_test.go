@@ -14,6 +14,8 @@ import (
 	"github.com/concourse/concourse/atc/db/lock/lockfakes"
 	"github.com/concourse/concourse/atc/resource"
 	"github.com/concourse/concourse/atc/resource/resourcefakes"
+	"github.com/concourse/concourse/atc/resource/source"
+	"github.com/concourse/concourse/atc/resource/source/sourcefakes"
 	"github.com/concourse/concourse/atc/worker/workerfakes"
 
 	. "github.com/onsi/ginkgo"
@@ -28,10 +30,10 @@ var _ = Describe("Fetcher", func() {
 		fetcher                 resource.Fetcher
 		ctx                     context.Context
 		cancel                  func()
-		fakeVersionedSource     *resourcefakes.FakeVersionedSource
+		fakeVersionedSource     *sourcefakes.FakeVersionedSource
 		fakeBuildStepDelegate   *workerfakes.FakeImageFetchingDelegate
 
-		versionedSource resource.VersionedSource
+		versionedSource source.VersionedSource
 		fetchErr        error
 		teamID          = 123
 	)
@@ -51,7 +53,7 @@ var _ = Describe("Fetcher", func() {
 		)
 
 		ctx, cancel = context.WithCancel(context.Background())
-		fakeVersionedSource = new(resourcefakes.FakeVersionedSource)
+		fakeVersionedSource = new(sourcefakes.FakeVersionedSource)
 
 		fakeBuildStepDelegate = new(workerfakes.FakeImageFetchingDelegate)
 	})

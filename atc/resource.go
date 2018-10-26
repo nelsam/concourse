@@ -1,5 +1,10 @@
 package atc
 
+import (
+	"io"
+	"path/filepath"
+)
+
 type Resource struct {
 	Name         string `json:"name"`
 	PipelineName string `json:"pipeline_name"`
@@ -14,4 +19,13 @@ type Resource struct {
 	CheckError      string `json:"check_error,omitempty"`
 
 	ConfigPinnedVersion Version `json:"config_pinned_version,omitempty"`
+}
+
+type IOConfig struct {
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
+func ResourcesDir(suffix string) string {
+	return filepath.Join("/tmp", "build", suffix)
 }

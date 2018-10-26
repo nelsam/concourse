@@ -28,12 +28,11 @@ func NewGetDelegate(build db.Build, planID atc.PlanID, clock clock.Clock) exec.G
 	}
 }
 
-func (d *getDelegate) Finished(logger lager.Logger, exitStatus exec.ExitStatus, info exec.VersionInfo) {
+func (d *getDelegate) Finished(logger lager.Logger, exitStatus exec.ExitStatus, version atc.Version) {
 	err := d.build.SaveEvent(event.FinishGet{
-		Origin:          d.eventOrigin,
-		ExitStatus:      int(exitStatus),
-		FetchedVersion:  info.Version,
-		FetchedMetadata: info.Metadata,
+		Origin:         d.eventOrigin,
+		ExitStatus:     int(exitStatus),
+		FetchedVersion: version,
 	})
 	if err != nil {
 		logger.Error("failed-to-save-finish-get-event", err)

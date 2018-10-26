@@ -91,6 +91,7 @@ func NewPutStep(
 // script will be interrupted.
 func (step *PutStep) Run(ctx context.Context, state RunState) error {
 	logger := lagerctx.FromContext(ctx)
+	logger = logger.WithData(lager.Data{"step": step.name, "resource": step.resource, "resource-type": step.resourceType, "version": step.versionInfo.Version})
 
 	containerSpec := worker.ContainerSpec{
 		ImageSpec: worker.ImageSpec{
@@ -99,7 +100,7 @@ func (step *PutStep) Run(ctx context.Context, state RunState) error {
 		Tags:   step.tags,
 		TeamID: step.build.TeamID(),
 
-		Dir: resource.ResourcesDir("put"),
+		Dir: atc.ResourcesDir("put"),
 
 		Env: step.stepMetadata.Env(),
 	}
@@ -111,6 +112,12 @@ func (step *PutStep) Run(ctx context.Context, state RunState) error {
 		})
 	}
 
+	resourceConfig, err := step.resourceConfigFactory.FindOrCreateResourceConfig(logger, step.resourceType, source, step.resourceTypes)
+	if err != nil {
+		logger.Error("failed-to-find-or-create-resource-config", err)
+		return err
+	}
+
 	putResource, err := step.resourceFactory.NewResource(
 		ctx,
 		logger,
@@ -119,6 +126,7 @@ func (step *PutStep) Run(ctx context.Context, state RunState) error {
 		containerSpec,
 		step.resourceTypes,
 		step.delegate,
+		resourceConfig,
 	)
 	if err != nil {
 		return err
@@ -161,13 +169,6 @@ func (step *PutStep) Run(ctx context.Context, state RunState) error {
 	}
 
 	if step.resource != "" {
-		logger = logger.WithData(lager.Data{"step": step.name, "resource": step.resource, "resource-type": step.resourceType, "version": step.versionInfo.Version})
-		resourceConfig, err := step.resourceConfigFactory.FindOrCreateResourceConfig(logger, step.resourceType, source, step.resourceTypes)
-		if err != nil {
-			logger.Error("failed-to-find-or-create-resource-config", err)
-			return err
-		}
-
 		created, err := resourceConfig.SaveUncheckedVersion(step.versionInfo.Version, db.NewResourceConfigMetadataFields(step.versionInfo.Metadata))
 		if err != nil {
 			logger.Error("failed-to-save-version", err)
@@ -216,5 +217,5 @@ type putInputSource struct {
 func (s *putInputSource) Source() worker.ArtifactSource { return s.source }
 
 func (s *putInputSource) DestinationPath() string {
-	return resource.ResourcesDir("put/" + string(s.name))
+	return atc.ResourcesDir("put/" + string(s.name))
 }

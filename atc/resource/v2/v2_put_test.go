@@ -1,4 +1,4 @@
-package resource_test
+package v2_test
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/onsi/gomega/gbytes"
 
 	"github.com/concourse/concourse/atc"
-	. "github.com/concourse/concourse/atc/resource"
+	res "github.com/concourse/concourse/atc/resource"
 )
 
 var _ = Describe("Resource Put", func() {
@@ -32,9 +32,9 @@ var _ = Describe("Resource Put", func() {
 
 		outScriptProcess *gfakes.FakeProcess
 
-		versionedSource VersionedSource
+		versionedSource res.VersionedSource
 
-		ioConfig  IOConfig
+		ioConfig  res.IOConfig
 		stdoutBuf *gbytes.Buffer
 		stderrBuf *gbytes.Buffer
 
@@ -55,7 +55,7 @@ var _ = Describe("Resource Put", func() {
 		attachOutError = nil
 
 		outScriptProcess = new(gfakes.FakeProcess)
-		outScriptProcess.IDReturns(TaskProcessID)
+		outScriptProcess.IDReturns(res.TaskProcessID)
 		outScriptProcess.WaitStub = func() (int, error) {
 			return outScriptExitStatus, nil
 		}
@@ -63,7 +63,7 @@ var _ = Describe("Resource Put", func() {
 		stdoutBuf = gbytes.NewBuffer()
 		stderrBuf = gbytes.NewBuffer()
 
-		ioConfig = IOConfig{
+		ioConfig = res.IOConfig{
 			Stdout: stdoutBuf,
 			Stderr: stderrBuf,
 		}
@@ -100,7 +100,7 @@ var _ = Describe("Resource Put", func() {
 				return outScriptProcess, nil
 			}
 
-			versionedSource, putErr = resourceForContainer.Put(ctx, ioConfig, source, params)
+			versionedSource, putErr = resource.Put(ctx, ioConfig, source, params)
 		})
 
 		itCanStreamOut := func() {
@@ -191,7 +191,7 @@ var _ = Describe("Resource Put", func() {
 				Expect(fakeContainer.AttachCallCount()).To(Equal(1))
 
 				pid, io := fakeContainer.AttachArgsForCall(0)
-				Expect(pid).To(Equal(TaskProcessID))
+				Expect(pid).To(Equal(res.TaskProcessID))
 
 				// send request on stdin in case process hasn't read it yet
 				request, err := ioutil.ReadAll(io.Stdin)
@@ -289,7 +289,7 @@ var _ = Describe("Resource Put", func() {
 				Expect(fakeContainer.RunCallCount()).To(Equal(1))
 
 				spec, _ := fakeContainer.RunArgsForCall(0)
-				Expect(spec.ID).To(Equal(TaskProcessID))
+				Expect(spec.ID).To(Equal(res.TaskProcessID))
 			})
 
 			It("uses the same working directory for all actions", func() {
@@ -457,7 +457,7 @@ var _ = Describe("Resource Put", func() {
 			}
 
 			go func() {
-				versionedSource, putErr = resourceForContainer.Put(ctx, ioConfig, source, params)
+				versionedSource, putErr = resource.Put(ctx, ioConfig, source, params)
 				close(done)
 			}()
 		})

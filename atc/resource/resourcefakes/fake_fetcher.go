@@ -9,11 +9,12 @@ import (
 	atc "github.com/concourse/concourse/atc"
 	creds "github.com/concourse/concourse/atc/creds"
 	resource "github.com/concourse/concourse/atc/resource"
+	source "github.com/concourse/concourse/atc/resource/source"
 	worker "github.com/concourse/concourse/atc/worker"
 )
 
 type FakeFetcher struct {
-	FetchStub        func(context.Context, lager.Logger, resource.Session, atc.Tags, int, creds.VersionedResourceTypes, resource.ResourceInstance, resource.Metadata, worker.ImageFetchingDelegate) (resource.VersionedSource, error)
+	FetchStub        func(context.Context, lager.Logger, resource.Session, atc.Tags, int, creds.VersionedResourceTypes, resource.ResourceInstance, resource.Metadata, worker.ImageFetchingDelegate) (source.VersionedSource, error)
 	fetchMutex       sync.RWMutex
 	fetchArgsForCall []struct {
 		arg1 context.Context
@@ -27,18 +28,18 @@ type FakeFetcher struct {
 		arg9 worker.ImageFetchingDelegate
 	}
 	fetchReturns struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
 	fetchReturnsOnCall map[int]struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeFetcher) Fetch(arg1 context.Context, arg2 lager.Logger, arg3 resource.Session, arg4 atc.Tags, arg5 int, arg6 creds.VersionedResourceTypes, arg7 resource.ResourceInstance, arg8 resource.Metadata, arg9 worker.ImageFetchingDelegate) (resource.VersionedSource, error) {
+func (fake *FakeFetcher) Fetch(arg1 context.Context, arg2 lager.Logger, arg3 resource.Session, arg4 atc.Tags, arg5 int, arg6 creds.VersionedResourceTypes, arg7 resource.ResourceInstance, arg8 resource.Metadata, arg9 worker.ImageFetchingDelegate) (source.VersionedSource, error) {
 	fake.fetchMutex.Lock()
 	ret, specificReturn := fake.fetchReturnsOnCall[len(fake.fetchArgsForCall)]
 	fake.fetchArgsForCall = append(fake.fetchArgsForCall, struct {
@@ -77,24 +78,24 @@ func (fake *FakeFetcher) FetchArgsForCall(i int) (context.Context, lager.Logger,
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9
 }
 
-func (fake *FakeFetcher) FetchReturns(result1 resource.VersionedSource, result2 error) {
+func (fake *FakeFetcher) FetchReturns(result1 source.VersionedSource, result2 error) {
 	fake.FetchStub = nil
 	fake.fetchReturns = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeFetcher) FetchReturnsOnCall(i int, result1 resource.VersionedSource, result2 error) {
+func (fake *FakeFetcher) FetchReturnsOnCall(i int, result1 source.VersionedSource, result2 error) {
 	fake.FetchStub = nil
 	if fake.fetchReturnsOnCall == nil {
 		fake.fetchReturnsOnCall = make(map[int]struct {
-			result1 resource.VersionedSource
+			result1 source.VersionedSource
 			result2 error
 		})
 	}
 	fake.fetchReturnsOnCall[i] = struct {
-		result1 resource.VersionedSource
+		result1 source.VersionedSource
 		result2 error
 	}{result1, result2}
 }

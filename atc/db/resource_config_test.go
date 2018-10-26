@@ -376,4 +376,137 @@ var _ = Describe("ResourceConfig", func() {
 			})
 		})
 	})
+
+	Describe("SaveDefaultSpace", func() {
+		var (
+			resourceConfig  db.ResourceConfig
+			defaultSpace    string
+			defaultSpaceErr error
+		)
+
+		BeforeEach(func() {
+			setupTx, err := dbConn.Begin()
+			Expect(err).ToNot(HaveOccurred())
+
+			brt := db.BaseResourceType{
+				Name: "some-type",
+			}
+			_, err = brt.FindOrCreate(setupTx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setupTx.Commit()).To(Succeed())
+
+			resourceConfigFactory := db.NewResourceConfigFactory(dbConn, lockFactory)
+			resourceConfig, err = resourceConfigFactory.FindOrCreateResourceConfig(logger, "some-type", atc.Source{"source-config": "some-value"}, creds.VersionedResourceTypes{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		JustBeforeEach(func() {
+			defaultSpaceErr = resourceConfig.SaveDefaultSpace(defaultSpace)
+		})
+
+		Context("when the space exists", func() {
+			BeforeEach(func() {
+				err := resourceConfig.SaveSpaces([]atc.Space{"space"})
+				Expect(err).ToNot(HaveOccurred())
+
+				defaultSpace := "space"
+			})
+
+			It("saves the default space", func() {
+				Expect(defaultSpaceErr).ToNot(HaveOccurred())
+				// XXX: ADD TEST FOR SEEING IF DEFAULT SPACE ID RETURNED IS CORRECT
+			})
+		})
+
+		Context("when the space does not exist", func() {
+			BeforeEach(func() {
+				defaultSpace := "space"
+			})
+
+			It("saves the default space", func() {
+				Expect(defaultSpaceErr).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("SaveVersion/SaveSpaces", func() {
+		var (
+			resourceConfig db.ResourceConfig
+			spaceVersion   atc.SpaceVersion
+		)
+
+		BeforeEach(func() {
+			setupTx, err := dbConn.Begin()
+			Expect(err).ToNot(HaveOccurred())
+
+			brt := db.BaseResourceType{
+				Name: "some-type",
+			}
+			_, err = brt.FindOrCreate(setupTx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(setupTx.Commit()).To(Succeed())
+
+			resourceConfigFactory := db.NewResourceConfigFactory(dbConn, lockFactory)
+			resourceConfig, err = resourceConfigFactory.FindOrCreateResourceConfig(logger, "some-type", atc.Source{"source-config": "some-value"}, creds.VersionedResourceTypes{})
+			Expect(err).ToNot(HaveOccurred())
+
+			spaceVersion = atc.SpaceVersion{
+				Space:   "space",
+				Version: atc.Version{"some": "version"},
+				Metadata: atc.Metadata{
+					{
+						"some": "metadata",
+					},
+				},
+			}
+		})
+
+		It("saves the version if the space exists", func() {
+			err := resourceConfig.SaveSpaces([]atc.Space{"space"})
+			Expect(err).ToNot(HaveOccurred())
+
+			err := resourceConfig.SaveVersion(spaceVersion)
+			Expect(err).ToNot(HaveOccurred())
+
+			latestVR, found, err := resourceConfig.LatestVersion()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+
+			Expect(latestVR.Version()).To(Equal(db.Version{"some": "version"}))
+			Expect(latestVR.CheckOrder()).To(Equal(1))
+		})
+
+		Context("when the space does not exist", func() {
+			BeforeEach(func() {
+				spaceVersion = atc.SpaceVersion{
+					Space:   "unknown-space",
+					Version: atc.Version{"some": "version"},
+					Metadata: atc.Metadata{
+						{
+							"some": "metadata",
+						},
+					},
+				}
+			})
+
+			It("does not save the version", func() {
+				err := resourceConfig.SaveVersion(spaceVersion)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("when the versions already exists", func() {
+			It("does not change the check order", func() {
+				err := resourceConfig.SaveVersion(spaceVersion)
+				Expect(err).ToNot(HaveOccurred())
+
+				latestVR, found, err := resourceConfig.LatestVersion()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeTrue())
+
+				Expect(latestVR.Version()).To(Equal(db.Version{"some": "version"}))
+				Expect(latestVR.CheckOrder()).To(Equal(1))
+			})
+		})
+	})
 })

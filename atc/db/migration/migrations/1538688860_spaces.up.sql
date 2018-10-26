@@ -7,10 +7,20 @@ BEGIN;
     UNIQUE (resource_config_id, name)
   );
 
-  ALTER TABLE resource_config_versions
-    DROP COLUMN resource_config_id,
-    ADD COLUMN space_id integer NOT NULL REFERENCES spaces (id) ON DELETE CASCADE,
+  CREATE TABLE resource_versions (
+      "id" serial NOT NULL PRIMARY KEY,
+      "space_id" integer NOT NULL REFERENCES spaces (id) ON DELETE CASCADE,
+      "version" jsonb NOT NULL,
+      "version_md5" text NOT NULL,
+      "metadata" jsonb NOT NULL DEFAULT 'null',
+      "check_order" integer NOT NULL DEFAULT 0
+  );
+
+  ALTER TABLE resource_versions
     ADD CONSTRAINT space_id_and_version_md5_unique UNIQUE (space_id, version_md5);
+
+  ALTER TABLE resource_configs
+    ADD COLUMN "default_space_id" integer REFERENCES spaces (id);
 
   CREATE UNIQUE INDEX job_combinations_job_id_combination_key ON job_combinations (job_id, combination);
   CREATE INDEX job_combinations_latest_completed_build_id ON job_combinations (latest_completed_build_id);
@@ -58,5 +68,7 @@ BEGIN;
   ALTER TABLE worker_task_caches DROP CONSTRAINT worker_task_caches_job_id_fkey;
   ALTER TABLE worker_task_caches ADD CONSTRAINT worker_task_caches_job_combination_id_fkey FOREIGN KEY (job_combination_id) REFERENCES job_combinations(id) ON DELETE CASCADE;
   ALTER INDEX worker_task_caches_job_id RENAME TO worker_task_caches_job_combination_id;
+
+  ALTER TABLE resource_caches DROP COLUMN metadata;
 
  COMMIT;

@@ -1,4 +1,4 @@
-package resource_test
+package v2_test
 
 import (
 	"context"
@@ -62,7 +62,7 @@ var _ = Describe("Resource Check", func() {
 			return checkScriptProcess, nil
 		}
 
-		checkResult, checkErr = resourceForContainer.Check(context.TODO(), source, version)
+		checkResult, checkErr = v2.Check(context.TODO(), source, version)
 	})
 
 	It("runs /opt/resource/check the request on stdin", func() {
