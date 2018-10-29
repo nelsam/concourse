@@ -31,6 +31,7 @@ type Job interface {
 	Unpause() error
 
 	CreateBuild() (Build, error)
+	CreateRebuild(cur Build) (Build, error)
 	Builds(page Page) ([]Build, Pagination, error)
 	Build(name string) (Build, bool, error)
 	FinishedAndNextBuild() (Build, Build, error)
@@ -565,6 +566,7 @@ func (j *job) CreateBuild() (Build, error) {
 		"team_id":            j.teamID,
 		"status":             BuildStatusPending,
 		"manually_triggered": true,
+		"rebuild":            false,
 	})
 	if err != nil {
 		return nil, err
@@ -617,6 +619,59 @@ func (j *job) ClearTaskCache(stepName string, cachePath string) (int64, error) {
 	}
 
 	return rowsDeleted, tx.Commit()
+}
+
+func (j *job) CreateRebuild(cur Build) (Build, error) {
+	tx, err := j.conn.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	defer Rollback(tx)
+
+	buildName, err := j.getNewBuildName(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Something simple to help the user know it's a rebuild
+	buildName = fmt.Sprintf("%s.%s", cur.Name(), buildName)
+
+	build := &build{conn: j.conn, lockFactory: j.lockFactory}
+	err = createBuild(tx, build, map[string]interface{}{
+		"name":               buildName,
+		"job_id":             j.id,
+		"pipeline_id":        j.pipelineID,
+		"team_id":            j.teamID,
+		"status":             BuildStatusPending,
+		"manually_triggered": true,
+		"rebuild":            true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	inputs, _, err := cur.Resources()
+	if err != nil {
+		return nil, err
+	}
+
+	err = build.useInputsTx(tx, inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = j.conn.Exec(`REFRESH MATERIALIZED VIEW CONCURRENTLY next_builds_per_job`)
+	if err != nil {
+		return nil, err
+	}
+
+	return build, nil
 }
 
 func (j *job) updateSerialGroups(serialGroups []string) error {

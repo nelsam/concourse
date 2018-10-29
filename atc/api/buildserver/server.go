@@ -6,11 +6,13 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/concourse/atc/api/auth"
 	"github.com/concourse/concourse/atc/db"
-	"github.com/concourse/concourse/atc/engine"
-	"github.com/concourse/concourse/atc/worker"
 )
 
 type EventHandlerFactory func(lager.Logger, db.Build) http.Handler
+
+type SchedulerFactory interface {
+	BuildScheduler(db.Pipeline, string, creds.Variables) scheduler.BuildScheduler
+}
 
 type Server struct {
 	logger lager.Logger
@@ -25,6 +27,10 @@ type Server struct {
 	eventHandlerFactory EventHandlerFactory
 	drain               <-chan struct{}
 	rejector            auth.Rejector
+
+	// Used for the creation of rebuild builds
+	schedulerFactory SchedulerFactory
+	variablesFactory creds.VariablesFactory
 }
 
 func NewServer(
